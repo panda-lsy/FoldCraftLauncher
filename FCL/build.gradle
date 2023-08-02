@@ -10,8 +10,8 @@ android {
         applicationId "com.tungsten.fcl"
         minSdk 26
         targetSdk 33
-        versionCode 8
-        versionName "1.0.5-patch-1"
+        versionCode 9
+        versionName "1.0.6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -20,6 +20,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        configureEach {
+            resValue "string", "app_version", "${defaultConfig.versionName}"
         }
     }
     applicationVariants.configureEach { variant ->
@@ -34,6 +37,38 @@ android {
     packagingOptions {
         jniLibs {
             useLegacyPackaging true
+        }
+    }
+}
+
+tasks.whenTaskAdded { Task task ->
+    if (task.name.contentEquals("assembleRelease")) {
+        task.dependsOn(updateMap)
+    }
+}
+
+tasks.register('updateMap') {
+    doLast {
+        def list = []
+        new File("${rootDir}/version_map.json").withReader("UTF-8") { reader ->
+            reader.eachLine {
+                if (it.contains('versionCode')) {
+                    it = it.replaceAll('[0-9]+', "${android.defaultConfig.versionCode}")
+                } else if (it.contains("versionName")) {
+                    it = it.replaceAll(': ".+', ": \"${android.defaultConfig.versionName}\",")
+                } else if (it.contains("date")) {
+                    def date = new Date().format("yyyy.MM.dd", TimeZone.getTimeZone("UTC"))
+                    it = it.replaceAll(': ".+', ": \"${date}\",")
+                } else if (it.contains("url")) {
+                    it = it.replaceAll('download/.+"', "download/${android.defaultConfig.versionName}/FCL-release-${android.defaultConfig.versionName}.apk\"")
+                }
+                list.add(it + "\n")
+            }
+        }
+        new File("${rootDir}/version_map.json").withWriter("UTF-8") { writer ->
+            list.each {
+                writer.write(it)
+            }
         }
     }
 }
